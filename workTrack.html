@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title>Mapbox GL JS example</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.css' rel='stylesheet' />
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    </style>
+</head>
+<body>
+    <div id='map'></div>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoibTQxaGlnaHdheSIsImEiOiJja295ZjQya2wwaTkxMnFtY203Z21wNjhzIn0.uF1S6TqlDfW7wmQ17Kp4NQ';
+        var map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [-122.420679, 37.772537],
+            zoom: 15
+        });
+
+        // добавляем контрольную панель для отображения текущей скорости
+        var speedControl = new function() {
+            this._speed = 0;
+            this.onAdd = function(map) {
+                this._container = document.createElement('div');
+                this._container.className = 'mapboxgl-ctrl';
+                this._container.innerHTML = '<strong>Speed: </strong><span id="speed">0</span> km/h' + '<strong>Distance: </strong><span id="distance">0</span> meters';
+                return this._container;
+            }
+            this.onRemove = function(map) {
+                this._container.parentNode.removeChild(this._container);
+                map.off('move', this._onMove);
+            }
+            this._onMove = function() {
+                console.log('_onMove')
+
+                var distance = 0;
+                for (var i = 1; i < routeCoordinates.length; i++) {
+                    var coord1 = routeCoordinates[i - 1];
+                    var coord2 = routeCoordinates[i];
+                    var d = getDistance(coord1[0], coord1[1], coord2[0], coord2[1]);
+                    distance += d;
+                }
+                document.getElementById('distance').innerHTML = Math.round(distance) + ' meters';
+            }
+            map.on('move', this._onMove.bind(this));
+        }
+
+        function getDistance(lon1, lat1, lon2, lat2) {
+            var R = 6371e3; // радиус Земли в метрах
+            var lat1rad = toRadians(lat1);
+            var lat2rad = toRadians(lat2);
+            var deltaLat = toRadians(lat2 - lat1);
+            var deltaLon = toRadians(lon2 - lon1);
+
+            var a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+                Math.cos(lat1rad) * Math.cos(lat2rad) *
+                Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c;
+        }
+
+        map.addControl(speedControl);
+
+        // создаем массив для хранения координат маршрута
+        var routeCoordinates = [];
+
+        // создаем линию на карте для отображения маршрута
+        var routeLine = {
+            'type': 'FeatureCollection',
+            'features': [
+                {
+                    'type': 'Feature',
+                    'geometry': {
+                        'type': 'LineString',
+                        'coordinates': []
+                    },
+                    'properties': {}
+                }
+            ]
+        };
+
+        // добавляем линию на карту
+        map.on('load', function() {
+            map.addLayer({
+                'id': 'route',
+                'type': 'line',
+                'source': {
+                    'type': 'geojson',
+                    'data': routeLine
+                },
+                'paint': {
+                    'line-color': '#007cbf',
+                    'line-width': 5,
+                    'line-opacity': 0.75
+                }
+            });
+        });
+
+        var lastTime = null;
+        var startPosition = null;
+
+        var positions = [];
+
+        // используем Geolocation API для получения текущей геопозиции пользователя
+        if ('geolocation' in navigator) {
+            navigator.geolocation.watchPosition(function(position) {
+                positions.push(position);
+
+                var start = [position.coords.longitude, position.coords.latitude];
+
+                // добавляем точку на карту и панорамируем к ней
+                if (!startPosition) {
+                    console.log('ПЕРВАЯ ПОГНАЛИ!!!!')
+                    new mapboxgl.Marker({
+                        color: '#ff0000'
+                    })
+                    .setLngLat(start)
+                    .addTo(map);
+                    map.panTo(start);
+
+                    startPosition = start
+                    routeCoordinates.push(start);
+                }
+
+                if (positions.length > 5) {
+
+                    console.log('строю!!!')
+
+                    var avgLat = positions.reduce(function(sum, pos) { return sum + pos.coords.latitude; }, 0) / positions.length;
+                    var avgLng = positions.reduce(function(sum, pos) { return sum + pos.coords.longitude; }, 0) / positions.length;
+                    // добавляем на карту точку с координатами (avgLat, avgLng)
+
+
+                    var lngLat = [avgLng, avgLat];
+
+                    map.easeTo({
+                        center: lngLat,
+                        duration: 1000, // по умолчанию
+                        easing: function (t) {
+                            return t; // линейная функция плавности
+                        }
+                    });
+                    // map.panTo(lngLat);
+
+                    // добавляем координаты в массив и обновляем линию на карте
+                    routeCoordinates.push(lngLat);
+                    routeLine.features[0].geometry.coordinates = routeCoordinates;
+                    map.getSource('route').setData(routeLine);
+
+                    if (lastTime) {
+                        var timeDiff = (new Date() - lastTime) / 1000; // разница в секундах
+                        var distance = getDistance(routeCoordinates[routeCoordinates.length - 2][0], routeCoordinates[routeCoordinates.length - 2][1], lngLat[0], lngLat[1]);
+                        var speed = distance / timeDiff * 3.6; // скорость в км/час
+                        document.getElementById('speed').innerHTML = Math.round(speed) + ' km/h';
+                    }
+
+                    lastTime = new Date();
+
+
+                    positions = [];
+                }
+            }, err => console.log(err), { enableHighAccuracy: true });
+        } else {
+            alert('Geolocation is not available');
+        }
+
+    var fakeMoveInterval; // объявляем переменную для хранения интервала
+
+    // функция для запуска генерации случайных координат
+    // функция для запуска генерации случайных координат
+    function startFakeMove() {
+        if (fakeMoveInterval) return; // если интервал уже запущен, не запускаем его ещё раз
+
+        fakeMoveInterval = setInterval(function() {
+            var distance = Math.random() * 0.0005; // генерируем случайное расстояние в диапазоне от 0 до 0.0005 градусов
+            var bearing = Math.random() * 360; // генерируем случайный направление движения
+            var lastCoord = routeCoordinates[routeCoordinates.length - 1]; // получаем последнюю координату из массива
+
+            // вычисляем новую координату на основе расстояния, направления и последней координаты
+            var lngLat = destination(lastCoord[0], lastCoord[1], distance, bearing);
+
+            // добавляем точку на карту и панорамируем к ней
+            map.easeTo({
+                center: lngLat,
+                duration: 1000, // по умолчанию
+                easing: function (t) {
+                    return t; // линейная функция плавности
+                }
+            });
+
+            // map.panTo(lngLat);
+
+            // добавляем координаты в массив и обновляем линию на карте
+            routeCoordinates.push(lngLat);
+            routeLine.features[0].geometry.coordinates = routeCoordinates;
+            map.getSource('route').setData(routeLine);
+        }, 1000); // изменяем координаты каждую секунду
+    }
+
+    // функция для остановки генерации случайных координат и сохранения маршрута
+    function stopFakeMove() {
+        clearInterval(fakeMoveInterval); // останавливаем интервал
+
+        // сохраняем маршрут в локальное хранилище браузера
+        var savedRoutes = JSON.parse(localStorage.getItem('savedRoutes')) || [];
+        savedRoutes.push(routeCoordinates);
+        localStorage.setItem('savedRoutes', JSON.stringify(savedRoutes));
+
+        fakeMoveInterval = null; // сбрасываем переменную, чтобы можно было запустить генерацию координат заново
+
+        // сбрасываем текущий маршрут
+        routeCoordinates = [];
+        routeLine.features[0].geometry.coordinates = routeCoordinates;
+        map.getSource('route').setData(routeLine);
+    }
+
+    // создаем кнопку "Стоп"
+    var stopButton = document.createElement('button');
+    stopButton.innerText = 'Стоп';
+    stopButton.style.position = 'absolute';
+    stopButton.style.top = '10px';
+    stopButton.style.left = '10px';
+    stopButton.addEventListener('click', stopFakeMove);
+    document.body.appendChild(stopButton);
+
+    // startFakeMove()
+
+    // функция, вызываемая при клике на кнопку "Вывести сохраненный маршрут"
+    function showSavedRoutes() {
+        var savedRoutes = JSON.parse(localStorage.getItem('savedRoutes')) || [];
+
+        // удаляем ранее созданные слои с сохраненными маршрутами
+        var layersToRemove = [];
+        for (var i = 0; i < map.getStyle().layers.length; i++) {
+            var layer = map.getStyle().layers[i];
+            if (layer.id.indexOf('saved-route-') === 0) {
+                layersToRemove.push(layer.id);
+            }
+        }
+        for (var j = 0; j < layersToRemove.length; j++) {
+            map.removeLayer(layersToRemove[j]);
+            map.removeSource(layersToRemove[j]);
+        }
+
+        // добавляем линии для каждого сохраненного маршрута
+        for (var k = 0; k < savedRoutes.length; k++) {
+            var route = savedRoutes[k];
+
+            map.addLayer({
+                'id': 'saved-route-' + k,
+                'type': 'line',
+                'source': {
+                    'type': 'geojson',
+                    'data': {
+                        'type': 'Feature',
+                        'geometry': {
+                            'type': 'LineString',
+                            'coordinates': route
+                        }
+                    }
+                },
+                'paint': {
+                    'line-color': '#00ff00',
+                    'line-width': 4
+                }
+            });
+        }
+    }
+
+    // создаем кнопку "Вывести сохраненный маршрут"
+    var showSavedRoutesButton = document.createElement('button');
+    showSavedRoutesButton.innerText = 'Вывести сохраненный маршрут';
+    showSavedRoutesButton.style.position = 'absolute';
+    showSavedRoutesButton.style.top = '50px';
+    showSavedRoutesButton.style.left = '10px';
+    showSavedRoutesButton.addEventListener('click', showSavedRoutes);
+    document.body.appendChild(showSavedRoutesButton);
+
+    // функция для вычисления новой координаты на основе расстояния, направления и стартовой координаты
+    function destination(lon, lat, distance, bearing) {
+        var R = 6371e3; // радиус Земли в метрах
+        var d = distance * R; // расстояние в метрах
+        var brng = toRadians(bearing); // преобразуем направление в радианы
+        var lat1 = toRadians(lat); // преобразуем широту в радианы
+        var lon1 = toRadians(lon); // преобразуем долготу в радианы
+
+        var lat2 = Math.asin(Math.sin(lat1) * Math.cos(d / R) + Math.cos(lat1) * Math.sin(d / R) * Math.cos(brng));
+        var lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(d / R) * Math.cos(lat1), Math.cos(d / R) - Math.sin(lat1) * Math.sin(lat2));
+
+        return [toDegrees(lon2), toDegrees(lat2)]; // возвращаем координаты в градусах
+    }
+
+    // функция для преобразования градусов в радианы
+    function toRadians(degrees) {
+        return degrees * Math.PI / 180;
+    }
+
+    // функция для преобразования радиан в градусы
+    function toDegrees(radians) {
+        return radians * 180 / Math.PI;
+    }
+
+    </script>
+</body>
+</html>

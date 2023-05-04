@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title>Велотрекер на Mapbox</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.css' rel='stylesheet' />
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.js'></script>
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+    <div id='map'></div>
+    <script>
+        // Добавляем ключ API Mapbox
+        mapboxgl.accessToken = 'pk.eyJ1IjoibTQxaGlnaHdheSIsImEiOiJja295ZjQya2wwaTkxMnFtY203Z21wNjhzIn0.uF1S6TqlDfW7wmQ17Kp4NQ';
+
+        // Создаем карту
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [37.6173, 55.7558],
+            zoom: 13
+        });
+
+        // Создаем и добавляем слой для трекера
+        map.on('load', function() {
+            map.addSource('route', {
+                'type': 'geojson',
+                'data': {
+                    'type': 'Feature',
+                    'properties': {},
+                    'geometry': {
+                        'type': 'LineString',
+                        'coordinates': []
+                    }
+                }
+            });
+            map.addLayer({
+                'id': 'route',
+                'type': 'line',
+                'source': 'route',
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                'paint': {
+                    'line-color': '#888',
+                    'line-width': 8
+                }
+            });
+        });
+
+        // Получаем новые координаты и добавляем их в слой трекера
+        function addCoordinate(coords) {
+            const data = map.getSource('route')._data;
+            data.geometry.coordinates.push(coords);
+            map.getSource('route').setData(data);
+        }
+
+        // Обработчик события нажатия на кнопку старта трекера
+        document.getElementById('start').addEventListener('click', function() {
+            navigator.geolocation.watchPosition(function(position) {
+                const coords = [position.coords.longitude, position.coords.latitude];
+                addCoordinate(coords);
+                map.flyTo({
+                    center: coords,
+                    zoom: 16
+                });
+            });
+        });
+    </script>
+
+    <div>
+        <button id='start'>Старт</button>
+    </div>
+</body>
+</html>
