@@ -1,21 +1,97 @@
 <template>
-  <div>
-    <div>fkwelmf</div>
+  <div class="simple-bike-track">
     <div id="map" class="basemap"></div>
   </div>
 </template>
 
 <script>
-// eslint-disable
+import { defineComponent } from "vue";
+import { Plugins } from "@capacitor/core";
 import mapboxgl from "mapbox-gl";
 
-export default {
-  name: "BaseMap",
+const { Geolocation } = Plugins;
+
+export default defineComponent({
+  name: "SimpleBikeTrack",
   data() {
     return {
       accessToken:
         "pk.eyJ1IjoibTQxaGlnaHdheSIsImEiOiJja295ZjQya2wwaTkxMnFtY203Z21wNjhzIn0.uF1S6TqlDfW7wmQ17Kp4NQ",
+      routeLine: {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: {
+              type: "LineString",
+              coordinates: [],
+            },
+            properties: {},
+          },
+        ],
+      },
+      map: null,
     };
+  },
+  methods: {
+    totalDistance(points) {
+      let total = 0;
+
+      // eslint-disable-next-line no-plusplus
+      for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1];
+        const curr = points[i];
+
+        total += this.distance(prev[0], prev[1], curr[0], curr[1]);
+      }
+
+      return total;
+    },
+    distance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Радиус Земли в километрах
+      const dLat = this.toRad(lat2 - lat1);
+      const dLon = this.toRad(lon2 - lon1);
+
+      // eslint-disable-next-line max-len, no-multi-spaces, operator-linebreak
+      const a =
+        // eslint-disable-next-line operator-linebreak
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        // eslint-disable-next-line operator-linebreak
+        Math.cos(this.toRad(lat1)) *
+          // eslint-disable-next-line operator-linebreak
+          Math.cos(this.toRad(lat2)) *
+          // eslint-disable-next-line operator-linebreak
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      return R * c;
+    },
+
+    toRad(degrees) {
+      return degrees * (Math.PI / 180);
+    },
+
+    async getCurrentPosition() {
+      console.log("ВЫЗОООВВ!!!");
+      const coordinates = await Geolocation.getCurrentPosition();
+      console.log("Current", coordinates);
+
+      // Создайте маркер на карте
+      const marker = new mapboxgl.Marker()
+        .setLngLat([coordinates.coords.longitude, coordinates.coords.latitude])
+        .addTo(this.map);
+
+      // Переместите центр карты на текущую геопозицию пользователя
+      this.map.setCenter([
+        coordinates.coords.longitude,
+        coordinates.coords.latitude,
+      ]);
+      Geolocation.getCurrentPosition().then((newPosition) => {
+        console.log("Current", newPosition);
+        // position.value = newPosition;
+      });
+    },
   },
   mounted() {
     mapboxgl.accessToken = this.accessToken;
@@ -29,34 +105,19 @@ export default {
       zoom: 1, // starting zoom
     });
 
-    const geolocate = new mapboxgl.GeolocateControl({
-      positionOptions: {
-        enableHighAccuracy: true,
-      },
-      trackUserLocation: true,
-      showUserHeading: true,
-    });
+    // const geolocate = new mapboxgl.GeolocateControl({
+    //   positionOptions: {
+    //     enableHighAccuracy: true,
+    //   },
+    //   trackUserLocation: true,
+    //   showUserHeading: true,
+    // });
 
-    // Добавление контроля на карту
-    map.addControl(geolocate);
+    // // Добавление контроля на карту
+    // map.addControl(geolocate);
 
     // создаем массив для хранения координат маршрута
     const routeCoordinates = [];
-
-    // создаем линию на карте для отображения маршрута
-    const routeLine = {
-      type: "FeatureCollection",
-      features: [
-        {
-          type: "Feature",
-          geometry: {
-            type: "LineString",
-            coordinates: [],
-          },
-          properties: {},
-        },
-      ],
-    };
 
     map.on("load", () => {
       map.addLayer({
@@ -64,7 +125,7 @@ export default {
         type: "line",
         source: {
           type: "geojson",
-          data: routeLine,
+          data: this.routeLine,
         },
         paint: {
           "line-color": "#007cbf",
@@ -75,78 +136,59 @@ export default {
     });
 
     // Обработчик события "geolocate"
-    geolocate.on("geolocate", (e) => {
-      const lon = e.coords.longitude;
-      const lat = e.coords.latitude;
+    // geolocate.on("geolocate", (e) => {
+    //   const lon = e.coords.longitude;
+    //   const lat = e.coords.latitude;
 
-      const lngLat = [lon, lat];
+    //   const lngLat = [lon, lat];
 
-      map.easeTo({
-        center: lngLat,
-        duration: 1000, // по умолчанию
-        easing(t) {
-          return t; // линейная функция плавности
-        },
+    //   map.easeTo({
+    //     center: lngLat,
+    //     duration: 1000, // по умолчанию
+    //     easing(t) {
+    //       return t; // линейная функция плавности
+    //     },
+    //   });
+
+    //   routeCoordinates.push(lngLat);
+    //   this.routeLine.features[0].geometry.coordinates = routeCoordinates;
+    //   map.getSource("route").setData(this.routeLine);
+
+    //   const result = this.totalDistance(routeCoordinates);
+    //   document.getElementById("distance").innerHTML = `${result.toFixed(2)} км`;
+
+    //   const { speed } = e.coords;
+    // eslint-disable-next-line max-len
+    //   const speedKmh = (speed * 3.6).toFixed(2); // переводим м/с в км/ч и округляем до двух знаков после запятой
+    //   document.getElementById("speed").innerHTML = `${speedKmh} км/ч`;
+    // });
+    setTimeout(async () => {
+      console.log("ВЫЗОООВВ!!!");
+      const coordinates = await Geolocation.getCurrentPosition();
+      console.log("Current", coordinates);
+
+      // Создайте маркер на карте
+      const marker = new mapboxgl.Marker()
+        .setLngLat([coordinates.coords.longitude, coordinates.coords.latitude])
+        .addTo(map);
+
+      // Переместите центр карты на текущую геопозицию пользователя
+      map.setCenter([
+        coordinates.coords.longitude,
+        coordinates.coords.latitude,
+      ]);
+      Geolocation.getCurrentPosition().then((newPosition) => {
+        console.log("Current", newPosition);
+        // position.value = newPosition;
       });
-
-      function toRad(degrees) {
-        return degrees * (Math.PI / 180);
-      }
-
-      function distance(lat1, lon1, lat2, lon2) {
-        const R = 6371; // Радиус Земли в километрах
-        const dLat = toRad(lat2 - lat1);
-        const dLon = toRad(lon2 - lon1);
-
-        // eslint-disable-next-line max-len, no-multi-spaces, operator-linebreak
-        const a =
-          // eslint-disable-next-line operator-linebreak
-          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          // eslint-disable-next-line operator-linebreak
-          Math.cos(toRad(lat1)) *
-            // eslint-disable-next-line operator-linebreak
-            Math.cos(toRad(lat2)) *
-            // eslint-disable-next-line operator-linebreak
-            Math.sin(dLon / 2) *
-            Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-        return R * c;
-      }
-
-      function totalDistance(points) {
-        let total = 0;
-
-        // eslint-disable-next-line no-plusplus
-        for (let i = 1; i < points.length; i++) {
-          const prev = points[i - 1];
-          const curr = points[i];
-
-          total += distance(prev[0], prev[1], curr[0], curr[1]);
-        }
-
-        return total;
-      }
-
-      routeCoordinates.push(lngLat);
-      routeLine.features[0].geometry.coordinates = routeCoordinates;
-      map.getSource("route").setData(routeLine);
-
-      const result = totalDistance(routeCoordinates);
-      document.getElementById("distance").innerHTML = `${result.toFixed(2)} км`;
-
-      const { speed } = e.coords;
-      // eslint-disable-next-line max-len
-      const speedKmh = (speed * 3.6).toFixed(2); // переводим м/с в км/ч и округляем до двух знаков после запятой
-      document.getElementById("speed").innerHTML = `${speedKmh} км/ч`;
-    });
+    }, 10000);
   },
-};
+});
 </script>
 
 <style lang="scss" scoped>
 .basemap {
-  width: 1000px;
-  height: 1000px;
+  width: 100vw;
+  height: 100vh;
 }
 </style>

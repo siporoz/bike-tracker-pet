@@ -1,5 +1,5 @@
 <template>
-  <q-page class="row items-center justify-evenly">
+  <q-page class="index row items-center justify-evenly">
     <SimpleBikeTrack />
   </q-page>
 </template>
@@ -18,3 +18,14 @@ export default defineComponent({
   },
 });
 </script>
+
+<style lang="scss" scoped>
+.index {
+  width: 100vw;
+  height: 100vh;
+
+  .simple-bike-track {
+    margin-top: 50px;
+  }
+}
+</style>
