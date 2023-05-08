@@ -1,5 +1,8 @@
 <template>
   <div class="simple-bike-track">
+    <div id="distance">Дистанция</div>
+    <div id="speed">Скорость</div>
+    <div id="marker"></div>
     <div id="map" class="basemap"></div>
   </div>
 </template>
@@ -87,13 +90,13 @@ export default defineComponent({
         coordinates.coords.longitude,
         coordinates.coords.latitude,
       ]);
-      Geolocation.getCurrentPosition().then((newPosition) => {
+      Geolocation.watchPosition().then((newPosition) => {
         console.log("Current", newPosition);
         // position.value = newPosition;
       });
     },
   },
-  mounted() {
+  async mounted() {
     mapboxgl.accessToken = this.accessToken;
 
     // eslint-disable-next-line no-new
@@ -105,18 +108,6 @@ export default defineComponent({
       zoom: 1, // starting zoom
     });
 
-    // const geolocate = new mapboxgl.GeolocateControl({
-    //   positionOptions: {
-    //     enableHighAccuracy: true,
-    //   },
-    //   trackUserLocation: true,
-    //   showUserHeading: true,
-    // });
-
-    // // Добавление контроля на карту
-    // map.addControl(geolocate);
-
-    // создаем массив для хранения координат маршрута
     const routeCoordinates = [];
 
     map.on("load", () => {
@@ -135,40 +126,20 @@ export default defineComponent({
       });
     });
 
-    // Обработчик события "geolocate"
-    // geolocate.on("geolocate", (e) => {
-    //   const lon = e.coords.longitude;
-    //   const lat = e.coords.latitude;
+    let currentPosion = null;
 
-    //   const lngLat = [lon, lat];
-
-    //   map.easeTo({
-    //     center: lngLat,
-    //     duration: 1000, // по умолчанию
-    //     easing(t) {
-    //       return t; // линейная функция плавности
-    //     },
-    //   });
-
-    //   routeCoordinates.push(lngLat);
-    //   this.routeLine.features[0].geometry.coordinates = routeCoordinates;
-    //   map.getSource("route").setData(this.routeLine);
-
-    //   const result = this.totalDistance(routeCoordinates);
-    //   document.getElementById("distance").innerHTML = `${result.toFixed(2)} км`;
-
-    //   const { speed } = e.coords;
-    // eslint-disable-next-line max-len
-    //   const speedKmh = (speed * 3.6).toFixed(2); // переводим м/с в км/ч и округляем до двух знаков после запятой
-    //   document.getElementById("speed").innerHTML = `${speedKmh} км/ч`;
-    // });
     setTimeout(async () => {
-      console.log("ВЫЗОООВВ!!!");
       const coordinates = await Geolocation.getCurrentPosition();
-      console.log("Current", coordinates);
 
-      // Создайте маркер на карте
-      const marker = new mapboxgl.Marker()
+      // Создайте маркер Старта на карте
+      new mapboxgl.Marker({ color: "#252a80" })
+        .setLngLat([coordinates.coords.longitude, coordinates.coords.latitude])
+        .addTo(map);
+
+      const el = document.getElementById("marker");
+      el.className = "marker";
+
+      currentPosion = new mapboxgl.Marker(el)
         .setLngLat([coordinates.coords.longitude, coordinates.coords.latitude])
         .addTo(map);
 
@@ -177,16 +148,56 @@ export default defineComponent({
         coordinates.coords.longitude,
         coordinates.coords.latitude,
       ]);
-      Geolocation.getCurrentPosition().then((newPosition) => {
-        console.log("Current", newPosition);
+
+      Geolocation.watchPosition({}, (newPosition, err) => {
+        const lon = newPosition.coords.longitude;
+        const lat = newPosition.coords.latitude;
+
+        currentPosion.setLngLat([
+          newPosition.coords.longitude,
+          newPosition.coords.latitude,
+        ]);
+
+        const lngLat = [lon, lat];
+
+        map.easeTo({
+          center: lngLat,
+          duration: 1000, // по умолчанию
+          easing(t) {
+            return t; // линейная функция плавности
+          },
+        });
+
+        routeCoordinates.push(lngLat);
+        this.routeLine.features[0].geometry.coordinates = routeCoordinates;
+        map.getSource("route").setData(this.routeLine);
+
+        const result = this.totalDistance(routeCoordinates);
+        document.getElementById("distance").innerHTML = `${result.toFixed(
+          // eslint-disable-next-line comma-dangle
+          2
+        )} км`;
+
+        const { speed } = newPosition.coords;
+        // eslint-disable-next-line max-len
+        const speedKmh = (speed * 3.6).toFixed(2); // переводим м/с в км/ч и округляем до двух знаков после запятой
+        document.getElementById("speed").innerHTML = `${speedKmh} км/ч`;
         // position.value = newPosition;
       });
-    }, 10000);
+    }, 1000);
   },
 });
 </script>
 
 <style lang="scss" scoped>
+.marker {
+  background-color: #007aff;
+  border: 4px solid white;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  cursor: pointer;
+}
 .basemap {
   width: 100vw;
   height: 100vh;
