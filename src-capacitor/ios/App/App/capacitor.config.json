@@ -4,7 +4,14 @@
   "bundledWebRuntime": false,
   "npmClient": "yarn",
   "webDir": "www",
+  "ios": {
+    "info": {
+      "UIBackgroundModes": [
+        "location"
+      ]
+    }
+  },
   "server": {
-    "url": "http://169.254.184.211:9500"
+    "url": "http://192.168.0.105:9501"
   }
 }

@@ -2,6 +2,11 @@
 # yarn lockfile v1
 
 
+"@capacitor-community/background-geolocation@0.3":
+  version "0.3.17"
+  resolved "https://registry.yarnpkg.com/@capacitor-community/background-geolocation/-/background-geolocation-0.3.17.tgz#59669d4a5a94fa20997af8e89b7c7db6c4dc6fe4"
+  integrity sha512-Gp4yvFrfuSlKAKz7XqUHBA6asj1eU7D6PFJry/R37YMqGPlsq/cYrxbavQpBuOa5KVt9v10IwL2uMsLKbHjVMg==
+
 "@capacitor/cli@^2.0.0":
   version "2.5.0"
   resolved "https://registry.yarnpkg.com/@capacitor/cli/-/cli-2.5.0.tgz#8a4fee7055757bdb56560952c4893eddf91a9afc"

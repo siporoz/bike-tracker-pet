@@ -23,9 +23,5 @@ export default defineComponent({
 .index {
   width: 100vw;
   height: 100vh;
-
-  .simple-bike-track {
-    margin-top: 50px;
-  }
 }
 </style>

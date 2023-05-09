@@ -7,6 +7,11 @@
   resolved "https://registry.npmjs.org/@babel/parser/-/parser-7.21.8.tgz"
   integrity sha512-6zavDGdzG3gUqAdWvlLFfk+36RilI+Pwyuuh7HItyeScCWP3k6i8vKclAQ0bM/0y/Kz/xiwvxhMv9MgTJP5gmA==
 
+"@capacitor-community/background-geolocation@0.3":
+  version "0.3.17"
+  resolved "https://registry.yarnpkg.com/@capacitor-community/background-geolocation/-/background-geolocation-0.3.17.tgz#59669d4a5a94fa20997af8e89b7c7db6c4dc6fe4"
+  integrity sha512-Gp4yvFrfuSlKAKz7XqUHBA6asj1eU7D6PFJry/R37YMqGPlsq/cYrxbavQpBuOa5KVt9v10IwL2uMsLKbHjVMg==
+
 "@capacitor/core@^2.0.0":
   version "2.0.0"
   resolved "https://registry.npmjs.org/@capacitor/core/-/core-2.0.0.tgz"
