@@ -22,8 +22,11 @@ import { defineComponent } from "vue";
 import { Plugins } from "@capacitor/core";
 import mapboxgl from "mapbox-gl";
 import { date } from "quasar";
+// eslint-disable-next-line import/namespace
+import { distance, toRad, totalDistance } from "../helpers/geolocation";
 
-const { Geolocation, BackgroundGeolocation, Modals } = Plugins;
+// eslint-disable-next-line object-curly-newline
+const { Geolocation, BackgroundGeolocation, Modals, App } = Plugins;
 
 export default defineComponent({
   name: "SimpleBikeTrack",
@@ -53,6 +56,9 @@ export default defineComponent({
     };
   },
   methods: {
+    distance,
+    toRad,
+    totalDistance,
     async start() {
       this.startTimer();
 
@@ -66,41 +72,7 @@ export default defineComponent({
       Geolocation.watchPosition(
         { enableHighAccuracy: true, background: true },
         (newPosition, err) => {
-          const lon = newPosition.coords.longitude;
-          const lat = newPosition.coords.latitude;
-
-          this.currentPosion.setLngLat([
-            newPosition.coords.longitude,
-            newPosition.coords.latitude,
-          ]);
-
-          const lngLat = [lon, lat];
-
-          this.map.easeTo({
-            center: lngLat,
-            duration: 1000, // по умолчанию
-            easing(t) {
-              return t; // линейная функция плавности
-            },
-          });
-
-          this.routeCoordinates.push(lngLat);
-          // eslint-disable-next-line operator-linebreak
-          this.routeLine.features[0].geometry.coordinates =
-            this.routeCoordinates;
-          this.map.getSource("route").setData(this.routeLine);
-
-          const result = this.totalDistance(this.routeCoordinates);
-          document.getElementById("distance").innerHTML = `${result.toFixed(
-            // eslint-disable-next-line comma-dangle
-            2
-          )} км`;
-
-          const { speed } = newPosition.coords;
-          // eslint-disable-next-line max-len
-          const speedKmh = (speed * 3.6).toFixed(2); // переводим м/с в км/ч и округляем до двух знаков после запятой
-          document.getElementById("speed").innerHTML = `${speedKmh} км/ч`;
-          // position.value = newPosition;
+          this.workWithMap(newPosition);
           // eslint-disable-next-line comma-dangle
         }
       );
@@ -125,42 +97,42 @@ export default defineComponent({
     stopTimer() {
       clearInterval(this.timerInterval);
     },
-    totalDistance(points) {
-      let total = 0;
+    workWithMap(newPosition) {
+      const lon = newPosition.coords.longitude;
+      const lat = newPosition.coords.latitude;
 
-      // eslint-disable-next-line no-plusplus
-      for (let i = 1; i < points.length; i++) {
-        const prev = points[i - 1];
-        const curr = points[i];
+      this.currentPosion.setLngLat([
+        newPosition.coords.longitude,
+        newPosition.coords.latitude,
+      ]);
 
-        total += this.distance(prev[0], prev[1], curr[0], curr[1]);
-      }
+      const lngLat = [lon, lat];
 
-      return total;
-    },
-    distance(lat1, lon1, lat2, lon2) {
-      const R = 6371; // Радиус Земли в километрах
-      const dLat = this.toRad(lat2 - lat1);
-      const dLon = this.toRad(lon2 - lon1);
+      this.map.easeTo({
+        center: lngLat,
+        duration: 1000, // по умолчанию
+        easing(t) {
+          return t; // линейная функция плавности
+        },
+      });
 
-      // eslint-disable-next-line max-len, no-multi-spaces, operator-linebreak
-      const a =
-        // eslint-disable-next-line operator-linebreak
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        // eslint-disable-next-line operator-linebreak
-        Math.cos(this.toRad(lat1)) *
-          // eslint-disable-next-line operator-linebreak
-          Math.cos(this.toRad(lat2)) *
-          // eslint-disable-next-line operator-linebreak
-          Math.sin(dLon / 2) *
-          Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      this.routeCoordinates.push(lngLat);
+      // eslint-disable-next-line operator-linebreak
+      this.routeLine.features[0].geometry.coordinates = this.routeCoordinates;
+      this.map.getSource("route").setData(this.routeLine);
 
-      return R * c;
-    },
+      const result = this.totalDistance(this.routeCoordinates);
+      document.getElementById("distance").innerHTML = `${result.toFixed(
+        // eslint-disable-next-line comma-dangle
+        2
+      )} км`;
 
-    toRad(degrees) {
-      return degrees * (Math.PI / 180);
+      const { speed } = newPosition.coords;
+      // eslint-disable-next-line max-len
+      const speedKmh = (speed * 3.6).toFixed(2); // переводим м/с в км/ч и округляем до двух знаков после запятой
+      document.getElementById("speed").innerHTML = `${speedKmh} км/ч`;
+      // position.value = newPosition;
+      // eslint-disable-next-line comma-dangle
     },
   },
   async mounted() {
@@ -206,7 +178,15 @@ export default defineComponent({
       ]);
 
       this.map.setZoom(18);
-    }, 300);
+
+      App.addListener("appStateChange", ({ isActive }) => {
+        if (isActive) {
+          console.log("The app is now active");
+        } else {
+          console.log("The app is now inactive");
+        }
+      });
+    }, 1000);
 
     try {
       BackgroundGeolocation.addWatcher(
@@ -224,10 +204,6 @@ export default defineComponent({
                 message: "Open settings now?",
               }).then(({ value }) => {
                 if (value) {
-                  // It can be useful to direct the user to their device's
-                  // settings when location permissions have been denied.
-                  // The plugin provides 'openSettings' to do exactly
-                  // this.
                   BackgroundGeolocation.openSettings();
                 }
               });
@@ -235,42 +211,17 @@ export default defineComponent({
             return console.error(error);
           }
 
-          return console.log(location);
+          console.log("В Вотчере!!!!");
+          console.log(location);
+          this.workWithMap(location);
+
+          return location;
           // eslint-disable-next-line comma-dangle
         }
       );
     } catch (e) {
       console.log(e);
     }
-
-    function guessLocation(callback, timeout) {
-      let lastLocation;
-      const id = Plugins.BackgroundGeolocation.addWatcher(
-        {
-          requestPermissions: false,
-          stale: true,
-        },
-        (location) => {
-          lastLocation = location || undefined;
-          // eslint-disable-next-line comma-dangle
-        }
-      );
-
-      setTimeout(() => {
-        callback(lastLocation);
-        Plugins.BackgroundGeolocation.removeWatcher({ id });
-      }, timeout);
-    }
-
-    setInterval(() => {
-      console.log("ТЕКУЩЕЕ ГЕО");
-      try {
-        guessLocation((loc) => console.log(`FFFFFF${loc}`));
-      } catch (e) {
-        console.log("В ошибке!");
-        console.log(e);
-      }
-    }, 1000);
   },
 });
 </script>
